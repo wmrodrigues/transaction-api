@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"transaction-api/internal/domain"
 	"transaction-api/internal/repository"
+
+	"gorm.io/gorm"
 )
 
 type UserService interface {
@@ -26,7 +28,11 @@ func (us *userService) GetUserById(ctx context.Context, id string) (*domain.User
 	if id == "" {
 		return nil, errors.New("user id cannot be empty and must be a valid UUID")
 	}
-	return us.userRepository.GetByID(ctx, id)
+	user, err := us.userRepository.GetByID(ctx, id)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, errors.New("user not found")
+	}
+	return user, err
 }
 
 func (us *userService) CreateUser(ctx context.Context, user *domain.User) error {

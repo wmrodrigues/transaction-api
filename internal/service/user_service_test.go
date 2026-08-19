@@ -49,9 +49,47 @@ func TestGetUser_ContextCancelled(t *testing.T) {
 	userService := NewUserService(repository)
 	_, err := userService.GetUserById(ctx, "123")
 	if !errors.Is(err, context.Canceled) {
-		t.Fatalf(
-			"expected context.Canceled, got %v",
-			err,
-		)
+		t.Fatalf("expected context.Canceled, got %v", err)
+	}
+}
+
+func TestGetUser_UserNotFound(t *testing.T) {
+	repository := &mockUserRepository{err: errors.New("user not found")}
+	userService := NewUserService(repository)
+	_, err := userService.GetUserById(context.Background(), "123")
+	if errors.Is(err, errors.New("user not found")) {
+		t.Fatalf("expected error, got %v", err)
+	}
+}
+
+func TestGetUser_ValidateCredentialsSuccess(t *testing.T) {
+	expectedUser := &domain.User{
+		ID:       "123",
+		Name:     "Wash",
+		Email:    "wash@example.com",
+		Password: "123456",
+	}
+	repository := &mockUserRepository{user: expectedUser}
+	userService := NewUserService(repository)
+	ctx := context.Background()
+	err := userService.ValidateCredentials(ctx, expectedUser.Email, expectedUser.Password)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestGetUser_ValidateCredentialsFailed(t *testing.T) {
+	expectedUser := &domain.User{
+		ID:       "123",
+		Name:     "Wash",
+		Email:    "wash@example.com",
+		Password: "123456",
+	}
+	repository := &mockUserRepository{user: expectedUser}
+	userService := NewUserService(repository)
+	ctx := context.Background()
+	err := userService.ValidateCredentials(ctx, expectedUser.Email, "wrong-password")
+	if err == nil {
+		t.Errorf("expected error, got nil")
 	}
 }
