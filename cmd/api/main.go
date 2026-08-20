@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -13,8 +12,7 @@ import (
 
 func main() {
 	appConfig := config.LoadConfigs()
-	ctx := context.Background()
-	db, err := config.GetPostgresConnection(ctx, &appConfig)
+	db, err := config.GetDatabaseConnection(&appConfig)
 	if err != nil {
 		log.Fatal(err)
 	}

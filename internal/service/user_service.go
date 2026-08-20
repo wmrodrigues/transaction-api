@@ -7,6 +7,7 @@ import (
 	"transaction-api/internal/domain"
 	"transaction-api/internal/repository"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -50,6 +51,7 @@ func (us *userService) CreateUser(ctx context.Context, user *domain.User) error 
 	if err == nil {
 		return errors.New("user already exists")
 	}
+	user.ID = uuid.New().String()
 	return us.userRepository.Create(ctx, user)
 }
 
