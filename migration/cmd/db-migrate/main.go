@@ -66,13 +66,12 @@ func printUsage() {
 
 func connectDatabase() (*pg.DB, error) {
 	cfg := config.LoadConfigs()
-	url := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d",
-		cfg.PostgresAddr, cfg.PostgresUser, cfg.PostgresPass, cfg.PostgresDB, cfg.PostgresPort)
-	opts, err := pg.ParseURL(url)
-	if err != nil {
-		return nil, err
+	opts := &pg.Options{
+		Addr:     fmt.Sprintf("%s:%d", cfg.PostgresAddr, cfg.PostgresPort),
+		User:     cfg.PostgresUser,
+		Password: cfg.PostgresPass,
+		Database: cfg.PostgresDB,
 	}
-
 	db := pg.Connect(opts)
 
 	//attempt to ping the database to verify the connection 3 times
@@ -81,7 +80,7 @@ func connectDatabase() (*pg.DB, error) {
 			log.Println("connected to database")
 			return db, nil
 		} else {
-			log.Printf("failed to connect to database with url %s: %s, retrying in 5s", url, err.Error())
+			log.Printf("failed to connect to database with url %s: %s, retrying in 5s", opts.ToURL(), err.Error())
 			time.Sleep(5 * time.Second)
 		}
 	}
