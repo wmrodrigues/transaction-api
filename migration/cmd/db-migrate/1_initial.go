@@ -29,8 +29,9 @@ func init() {
 		}
 		return nil
 	}, func(db migrations.DB) error {
+		fmt.Println("dropping tables...")
 		_, err := db.Exec(`
-
+		DROP TABLE IF EXISTS users;
 		`)
 		return err
 	})
