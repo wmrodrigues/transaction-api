@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"time"
+	"transaction-api/internal/domain"
 
 	"gorm.io/gorm"
 )
@@ -17,6 +18,26 @@ type UserModel struct {
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
 }
 
-func (UserModel) TableName() string {
+func (u *UserModel) TableName() string {
 	return "users"
+}
+
+func (u *UserModel) toDomain() domain.User {
+	return domain.User{
+		ID:       u.ID,
+		Name:     u.Name,
+		Email:    u.Email,
+		Password: u.Password,
+		Active:   u.Active,
+	}
+}
+
+func UserToModel(user *domain.User) UserModel {
+	return UserModel{
+		ID:       user.ID,
+		Name:     user.Name,
+		Email:    user.Email,
+		Password: user.Password,
+		Active:   user.Active,
+	}
 }

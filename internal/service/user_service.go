@@ -37,14 +37,8 @@ func (us *userService) GetUserById(ctx context.Context, id string) (*domain.User
 }
 
 func (us *userService) CreateUser(ctx context.Context, user *domain.User) error {
-	if user.Name == "" {
-		return errors.New("name is required")
-	}
-	if user.Email == "" {
-		return errors.New("email is required")
-	}
-	if user.Password == "" {
-		return errors.New("password is required")
+	if err := user.Validate(); err != nil {
+		return fmt.Errorf("error validating user date: %w", err)
 	}
 	user.Active = true
 	_, err := us.userRepository.GetByEmail(ctx, user.Email)
