@@ -10,7 +10,7 @@ import (
 type Transaction struct {
 	ID         string    `json:"id"`
 	UserID     string    `json:"user_id"`
-	FromUserID string    `json:"from_user_id"`
+	FromUserID *string   `json:"from_user_id"`
 	Currency   string    `json:"currency"`
 	Amount     int64     `json:"amount"`
 	Balance    int64     `json:"balance"`
@@ -30,8 +30,8 @@ func (t *Transaction) Validate() error {
 	if err := uuid.Validate(t.UserID); err != nil {
 		return errors.New("user_id must be a valid UUID")
 	}
-	if t.FromUserID != "" {
-		if err := uuid.Validate(t.FromUserID); err != nil {
+	if t.FromUserID != nil {
+		if err := uuid.Validate(*t.FromUserID); err != nil {
 			return errors.New("from_user_id must be a valid UUID")
 		}
 	}

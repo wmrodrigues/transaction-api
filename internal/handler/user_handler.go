@@ -18,7 +18,7 @@ func NewUserHandler(userService service.UserService) *UserHandler {
 func (uh *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	id := r.PathValue("id")
-	user, err := uh.userService.GetUserById(ctx, id)
+	user, err := uh.userService.GetById(ctx, id)
 	if err != nil {
 		common.SendBadRequestResponse(w, err)
 		return
@@ -31,7 +31,7 @@ func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	if err := common.DecodeBodyToObject(w, r, &user); err != nil {
 		return
 	}
-	if err := uh.userService.CreateUser(r.Context(), &user); err != nil {
+	if err := uh.userService.Create(r.Context(), &user); err != nil {
 		common.SendBadRequestResponse(w, err)
 		return
 	}

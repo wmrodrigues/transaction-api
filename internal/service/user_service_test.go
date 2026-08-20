@@ -33,7 +33,7 @@ func TestGetUser(t *testing.T) {
 	repository := &mockUserRepository{user: expectedUser}
 	userService := NewUserService(repository)
 	ctx := context.Background()
-	user, err := userService.GetUserById(ctx, "123")
+	user, err := userService.GetById(ctx, "123")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -47,7 +47,7 @@ func TestGetUser_ContextCancelled(t *testing.T) {
 	cancel()
 	repository := &mockUserRepository{err: context.Canceled}
 	userService := NewUserService(repository)
-	_, err := userService.GetUserById(ctx, "123")
+	_, err := userService.GetById(ctx, "123")
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected context.Canceled, got %v", err)
 	}
@@ -56,7 +56,7 @@ func TestGetUser_ContextCancelled(t *testing.T) {
 func TestGetUser_UserNotFound(t *testing.T) {
 	repository := &mockUserRepository{err: errors.New("user not found")}
 	userService := NewUserService(repository)
-	_, err := userService.GetUserById(context.Background(), "123")
+	_, err := userService.GetById(context.Background(), "123")
 	if errors.Is(err, errors.New("user not found")) {
 		t.Fatalf("expected error, got %v", err)
 	}
