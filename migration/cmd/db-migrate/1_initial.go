@@ -33,6 +33,7 @@ func init() {
 				id UUID PRIMARY KEY,
 				user_id UUID NOT NULL,
 				from_user_id UUID,
+				to_user_id UUID,
 				currency VARCHAR(3) NOT NULL,
 				amount BIGINT NOT NULL,
 				balance BIGINT NOT NULL,

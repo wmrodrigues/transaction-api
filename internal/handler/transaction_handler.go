@@ -3,6 +3,8 @@ package handler
 import (
 	"net/http"
 	"transaction-api/internal/common"
+	"transaction-api/internal/domain"
+	"transaction-api/internal/handler/dto"
 	"transaction-api/internal/service"
 )
 
@@ -26,7 +28,20 @@ func (th *TransactionHandler) GetTransaction(w http.ResponseWriter, r *http.Requ
 }
 
 func (th *TransactionHandler) CreateTransaction(w http.ResponseWriter, r *http.Request) {
-
+	ctx := r.Context()
+	var transactionRequest dto.Transaction
+	err := common.DecodeBodyToObject(w, r, &transactionRequest)
+	if err != nil {
+		return
+	}
+	var transaction domain.Transaction
+	transaction = transactionRequest.ToDomain()
+	err = th.transactionService.Create(ctx, &transaction)
+	if err != nil {
+		common.SendBadRequestResponse(w, err)
+		return
+	}
+	common.SendCreatedResponse(w, nil)
 }
 
 func (th *TransactionHandler) GetTransactions(w http.ResponseWriter, r *http.Request) {
@@ -35,7 +50,8 @@ func (th *TransactionHandler) GetTransactions(w http.ResponseWriter, r *http.Req
 		common.SendBadRequestResponse(w, err)
 		return
 	}
-	result, err := th.transactionService.GetAll(r.Context(), pagination)
+	userId := r.PathValue("id")
+	result, err := th.transactionService.GetByUserId(r.Context(), userId, pagination)
 	if err != nil {
 		common.SendBadRequestResponse(w, err)
 		return

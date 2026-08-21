@@ -11,6 +11,7 @@ type Transaction struct {
 	ID         string    `json:"id"`
 	UserID     string    `json:"user_id"`
 	FromUserID *string   `json:"from_user_id"`
+	ToUserID   *string   `json:"to_user_id"`
 	Currency   string    `json:"currency"`
 	Amount     int64     `json:"amount"`
 	Balance    int64     `json:"balance"`
@@ -35,7 +36,25 @@ func (t *Transaction) Validate() error {
 			return errors.New("from_user_id must be a valid UUID")
 		}
 	}
+	if t.ToUserID != nil {
+		if err := uuid.Validate(*t.ToUserID); err != nil {
+			return errors.New("to_user_id must be a valid UUID")
+		}
+	}
 	return nil
+}
+
+func (t *Transaction) Clone() Transaction {
+	return Transaction{
+		ID:         t.ID,
+		UserID:     t.UserID,
+		FromUserID: t.FromUserID,
+		ToUserID:   t.ToUserID,
+		Currency:   t.Currency,
+		Amount:     t.Amount,
+		Balance:    t.Balance,
+		CreatedAt:  t.CreatedAt,
+	}
 }
 
 type CurrencyKey string

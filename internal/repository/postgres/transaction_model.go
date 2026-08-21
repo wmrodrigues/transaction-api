@@ -12,6 +12,7 @@ type TransactionModel struct {
 	ID         string         `gorm:"type:uuid;primaryKey" json:"id"`
 	UserID     string         `gorm:"type:uuid" json:"user_id"`
 	FromUserID *string        `gorm:"type:uuid" json:"from_user_id"`
+	ToUserID   *string        `gorm:"type:uuid" json:"to_user_id"`
 	Currency   string         `gorm:"type:varchar(3)" json:"currency"`
 	Amount     int64          `gorm:"type:bigint" json:"amount"`
 	Balance    int64          `gorm:"type:bigint" json:"balance"`
@@ -29,6 +30,7 @@ func (t *TransactionModel) toDomain() domain.Transaction {
 		ID:         t.ID,
 		UserID:     t.UserID,
 		FromUserID: t.FromUserID,
+		ToUserID:   t.ToUserID,
 		Currency:   t.Currency,
 		Amount:     t.Amount,
 		Balance:    t.Balance,
@@ -50,6 +52,7 @@ func TransactionToModel(transaction *domain.Transaction) TransactionModel {
 		ID:         id,
 		UserID:     transaction.UserID,
 		FromUserID: transaction.FromUserID,
+		ToUserID:   transaction.ToUserID,
 		Currency:   currency,
 		Amount:     transaction.Amount,
 		Balance:    transaction.Balance,

@@ -23,7 +23,7 @@ func main() {
 
 	// Services
 	userService := service.NewUserService(userRepository, transactionRepository)
-	transactionService := service.NewTransactionService(transactionRepository)
+	transactionService := service.NewTransactionService(transactionRepository, userRepository)
 
 	// Controllers
 	userHandler := handler.NewUserHandler(userService)
@@ -35,9 +35,9 @@ func main() {
 
 	mux.HandleFunc("GET /v1/users/{id}", userHandler.GetUser)
 	mux.HandleFunc("POST /v1/users", userHandler.CreateUser)
+	mux.HandleFunc("GET /v1/users/{id}/transactions", transactionHandler.GetTransactions)
 
 	mux.HandleFunc("GET /v1/transactions/{id}", transactionHandler.GetTransaction)
-	mux.HandleFunc("GET /v1/transactions", transactionHandler.GetTransactions)
 	mux.HandleFunc("POST /v1/transactions", transactionHandler.CreateTransaction)
 
 	mux.HandleFunc("GET /health", healthHandler.GetHealth)

@@ -47,16 +47,16 @@ func (t *TransactionRepository) Create(ctx context.Context, transaction *domain.
 	return err
 }
 
-func (t *TransactionRepository) GetAll(ctx context.Context, pagination domain.Pagination) (*domain.Page[domain.Transaction], error) {
+func (t *TransactionRepository) GetByUserId(ctx context.Context, userId string, pagination domain.Pagination) (*domain.Page[domain.Transaction], error) {
 	if pagination.Page <= 0 {
-		pagination.Page = 1
+		pagination.Page = 0
 	}
 
 	if pagination.PageSize <= 0 {
-		pagination.PageSize = 20
+		pagination.PageSize = 10
 	}
 
-	offset := (pagination.Page - 1) * pagination.PageSize
+	offset := pagination.Page * pagination.PageSize
 
 	var total int64
 
@@ -73,6 +73,8 @@ func (t *TransactionRepository) GetAll(ctx context.Context, pagination domain.Pa
 	var models []TransactionModel
 	err = t.db.
 		WithContext(ctx).
+		Where("user_id = ?", userId).
+		Order("created_at").
 		Limit(pagination.PageSize).
 		Offset(offset).
 		Find(&models).

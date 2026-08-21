@@ -2,25 +2,36 @@ package common
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strconv"
 	"transaction-api/internal/domain"
+	"transaction-api/internal/handler/dto"
 )
 
 const (
 	ContentTypeHeader = "Content-Type"
 	ContentTypeJSON   = "application/json"
+	DefaultPageSize   = 10
+	DefaultPage       = 0
 )
+
+type ErrorResponse struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}
 
 func SendCreatedResponse(w http.ResponseWriter, data interface{}) {
 	w.Header().Set(ContentTypeHeader, ContentTypeJSON)
 	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(data)
+	if data != nil {
+		_ = json.NewEncoder(w).Encode(data)
+	}
 }
 
 func SendErrorResponse(w http.ResponseWriter, err error) {
-	http.Error(w, err.Error(), http.StatusInternalServerError)
+	w.Header().Set(ContentTypeHeader, ContentTypeJSON)
+	w.WriteHeader(http.StatusInternalServerError)
+	_ = json.NewEncoder(w).Encode(ErrorResponse{Code: http.StatusInternalServerError, Message: err.Error()})
 }
 
 func SendSuccessResponse(w http.ResponseWriter, data interface{}) {
@@ -32,10 +43,12 @@ func SendSuccessResponse(w http.ResponseWriter, data interface{}) {
 }
 
 func SendBadRequestResponse(w http.ResponseWriter, err error) {
-	http.Error(w, err.Error(), http.StatusBadRequest)
+	w.Header().Set(ContentTypeHeader, ContentTypeJSON)
+	w.WriteHeader(http.StatusBadRequest)
+	_ = json.NewEncoder(w).Encode(ErrorResponse{Code: http.StatusBadRequest, Message: err.Error()})
 }
 
-func DecodeBodyToObject[O domain.User](w http.ResponseWriter, r *http.Request, object *O) error {
+func DecodeBodyToObject[O dto.User | dto.Transaction](w http.ResponseWriter, r *http.Request, object *O) error {
 	if err := json.NewDecoder(r.Body).Decode(&object); err != nil {
 		SendBadRequestResponse(w, err)
 		return err
@@ -46,11 +59,11 @@ func DecodeBodyToObject[O domain.User](w http.ResponseWriter, r *http.Request, o
 func GetPagination(r *http.Request) (domain.Pagination, error) {
 	page, err := strconv.Atoi(r.URL.Query().Get("page"))
 	if err != nil {
-		return domain.Pagination{}, fmt.Errorf("error parsing page: %w", err)
+		page = DefaultPage
 	}
 	pageSize, err := strconv.Atoi(r.URL.Query().Get("page_size"))
 	if err != nil {
-		return domain.Pagination{}, fmt.Errorf("error parsing page_size: %w", err)
+		pageSize = DefaultPageSize
 	}
 	return domain.Pagination{Page: page, PageSize: pageSize}, nil
 }
