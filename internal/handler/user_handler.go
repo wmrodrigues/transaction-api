@@ -24,11 +24,11 @@ func (uh *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 		common.SendBadRequestResponse(w, err)
 		return
 	}
-	common.SendSuccessResponse(w, user)
+	common.SendSuccessResponse(w, dto.UserToResponse(*user))
 }
 
 func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
-	var userRequest dto.User
+	var userRequest dto.UserRequest
 	if err := common.DecodeBodyToObject(w, r, &userRequest); err != nil {
 		return
 	}
@@ -38,11 +38,11 @@ func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		common.SendBadRequestResponse(w, err)
 		return
 	}
-	common.SendCreatedResponse(w, user)
+	common.SendCreatedResponse(w, dto.UserToResponse(user))
 }
 
 func (uh *UserHandler) ValidateCredentials(w http.ResponseWriter, r *http.Request) {
-	var userRequest dto.User
+	var userRequest dto.UserRequest
 	if err := common.DecodeBodyToObject(w, r, &userRequest); err != nil {
 		return
 	}

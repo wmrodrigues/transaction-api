@@ -48,7 +48,7 @@ func SendBadRequestResponse(w http.ResponseWriter, err error) {
 	_ = json.NewEncoder(w).Encode(ErrorResponse{Code: http.StatusBadRequest, Message: err.Error()})
 }
 
-func DecodeBodyToObject[O dto.User | dto.Transaction](w http.ResponseWriter, r *http.Request, object *O) error {
+func DecodeBodyToObject[O dto.UserRequest | dto.Transaction](w http.ResponseWriter, r *http.Request, object *O) error {
 	if err := json.NewDecoder(r.Body).Decode(&object); err != nil {
 		SendBadRequestResponse(w, err)
 		return err

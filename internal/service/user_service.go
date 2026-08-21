@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"transaction-api/internal/common"
 	"transaction-api/internal/database"
 	"transaction-api/internal/domain"
 	"transaction-api/internal/repository"
@@ -44,8 +45,13 @@ func (us *userService) Create(ctx context.Context, user *domain.User) error {
 		if err := user.Validate(); err != nil {
 			return fmt.Errorf("error validating user data: %w", err)
 		}
+		password, err := common.HashPassword(user.Password)
+		if err != nil {
+			return fmt.Errorf("error hashing user password: %w", err)
+		}
+		user.Password = password
 		user.Active = true
-		_, err := us.userRepository.GetByEmail(ctx, user.Email)
+		_, err = us.userRepository.GetByEmail(ctx, user.Email)
 		if err == nil {
 			return errors.New("user already exists")
 		}
