@@ -1,7 +1,8 @@
-package domain
+package dto
 
 import (
 	"errors"
+	"transaction-api/internal/domain"
 )
 
 type User struct {
@@ -9,7 +10,6 @@ type User struct {
 	Name     string `json:"name"`
 	Email    string `json:"email"`
 	Password string `json:"password,omitempty"`
-	Active   bool   `json:"active"`
 }
 
 func (u *User) Validate() error {
@@ -23,4 +23,12 @@ func (u *User) Validate() error {
 		return errors.New("password is required")
 	}
 	return nil
+}
+
+func (u *User) ToDomain() domain.User {
+	return domain.User{
+		Name:     u.Name,
+		Email:    u.Email,
+		Password: u.Password,
+	}
 }

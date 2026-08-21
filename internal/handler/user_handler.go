@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"transaction-api/internal/common"
 	"transaction-api/internal/domain"
+	"transaction-api/internal/handler/dto"
 	"transaction-api/internal/service"
 )
 
@@ -18,7 +19,7 @@ func NewUserHandler(userService service.UserService) *UserHandler {
 func (uh *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	id := r.PathValue("id")
-	user, err := uh.userService.GetUserById(ctx, id)
+	user, err := uh.userService.GetById(ctx, id)
 	if err != nil {
 		common.SendBadRequestResponse(w, err)
 		return
@@ -27,11 +28,13 @@ func (uh *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
-	var user domain.User
-	if err := common.DecodeBodyToObject(w, r, &user); err != nil {
+	var userRequest dto.User
+	if err := common.DecodeBodyToObject(w, r, &userRequest); err != nil {
 		return
 	}
-	if err := uh.userService.CreateUser(r.Context(), &user); err != nil {
+	var user domain.User
+	user = userRequest.ToDomain()
+	if err := uh.userService.Create(r.Context(), &user); err != nil {
 		common.SendBadRequestResponse(w, err)
 		return
 	}
@@ -39,10 +42,12 @@ func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (uh *UserHandler) ValidateCredentials(w http.ResponseWriter, r *http.Request) {
-	var user domain.User
-	if err := common.DecodeBodyToObject(w, r, &user); err != nil {
+	var userRequest dto.User
+	if err := common.DecodeBodyToObject(w, r, &userRequest); err != nil {
 		return
 	}
+	var user domain.User
+	user = userRequest.ToDomain()
 	if err := uh.userService.ValidateCredentials(r.Context(), user.Email, user.Password); err != nil {
 		common.SendBadRequestResponse(w, err)
 	}

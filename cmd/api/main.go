@@ -1,11 +1,11 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"net/http"
 	config "transaction-api/internal/config"
+	"transaction-api/internal/database"
 	"transaction-api/internal/handler"
 	"transaction-api/internal/repository/postgres"
 	"transaction-api/internal/service"
@@ -13,27 +13,36 @@ import (
 
 func main() {
 	appConfig := config.LoadConfigs()
-	ctx := context.Background()
-	db, err := config.GetPostgresConnection(ctx, &appConfig)
+	db, err := config.GetDatabaseConnection(&appConfig)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// Repositories
 	userRepository := postgres.NewUserRepository(db)
+	transactionRepository := postgres.NewTransactionRepository(db)
+
+	// Transaction manager
+	transactionManager := database.NewGormManager(db)
 
 	// Services
-	userService := service.NewUserService(userRepository)
+	userService := service.NewUserService(userRepository, transactionRepository, transactionManager)
+	transactionService := service.NewTransactionService(transactionRepository, userRepository, transactionManager)
 
 	// Controllers
 	userHandler := handler.NewUserHandler(userService)
+	transactionHandler := handler.NewTransactionHandler(transactionService)
 	healthHandler := handler.NewHealthHandler()
 
 	// Application HTTP routes
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("GET /users/{id}", userHandler.GetUser)
-	mux.HandleFunc("POST /users", userHandler.CreateUser)
+	mux.HandleFunc("GET /v1/users/{id}", userHandler.GetUser)
+	mux.HandleFunc("POST /v1/users", userHandler.CreateUser)
+	mux.HandleFunc("GET /v1/users/{id}/transactions", transactionHandler.GetTransactions)
+
+	mux.HandleFunc("GET /v1/transactions/{id}", transactionHandler.GetTransaction)
+	mux.HandleFunc("POST /v1/transactions", transactionHandler.CreateTransaction)
 
 	mux.HandleFunc("GET /health", healthHandler.GetHealth)
 

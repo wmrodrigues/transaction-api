@@ -1,7 +1,6 @@
 package config
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -9,7 +8,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func GetPostgresConnection(ctx context.Context, cfg *Config) (*gorm.DB, error) {
+func GetDatabaseConnection(cfg *Config) (*gorm.DB, error) {
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d",
 		cfg.PostgresAddr, cfg.PostgresUser, cfg.PostgresPass, cfg.PostgresDB, cfg.PostgresPort)
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
