@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"transaction-api/internal/database"
 	"transaction-api/internal/domain"
 	"transaction-api/internal/repository"
 
@@ -20,10 +21,11 @@ type UserService interface {
 type userService struct {
 	userRepository        repository.UserRepository
 	transactionRepository repository.TransactionRepository
+	transactionManager    database.Manager
 }
 
-func NewUserService(userRepository repository.UserRepository, transactionRepository repository.TransactionRepository) UserService {
-	return &userService{userRepository: userRepository, transactionRepository: transactionRepository}
+func NewUserService(userRepository repository.UserRepository, transactionRepository repository.TransactionRepository, transactionManager database.Manager) UserService {
+	return &userService{userRepository: userRepository, transactionRepository: transactionRepository, transactionManager: transactionManager}
 }
 
 func (us *userService) GetById(ctx context.Context, id string) (*domain.User, error) {
@@ -38,23 +40,25 @@ func (us *userService) GetById(ctx context.Context, id string) (*domain.User, er
 }
 
 func (us *userService) Create(ctx context.Context, user *domain.User) error {
-	if err := user.Validate(); err != nil {
-		return fmt.Errorf("error validating user data: %w", err)
-	}
-	user.Active = true
-	_, err := us.userRepository.GetByEmail(ctx, user.Email)
-	if err == nil {
-		return errors.New("user already exists")
-	}
-	user.ID = uuid.New().String()
-	err = us.userRepository.Create(ctx, user)
-	// create a transaction record with zero value for the new user
-	_ = us.transactionRepository.Create(ctx, &domain.Transaction{
-		UserID:  user.ID,
-		Amount:  0,
-		Balance: 0,
+	return us.transactionManager.WithinTransaction(ctx, func(ctx context.Context) error {
+		if err := user.Validate(); err != nil {
+			return fmt.Errorf("error validating user data: %w", err)
+		}
+		user.Active = true
+		_, err := us.userRepository.GetByEmail(ctx, user.Email)
+		if err == nil {
+			return errors.New("user already exists")
+		}
+		user.ID = uuid.New().String()
+		err = us.userRepository.Create(ctx, user)
+		// create a transaction record with zero value for the new user
+		_ = us.transactionRepository.Create(ctx, &domain.Transaction{
+			UserID:  user.ID,
+			Amount:  0,
+			Balance: 0,
+		})
+		return err
 	})
-	return err
 }
 
 func (us *userService) ValidateCredentials(ctx context.Context, email, password string) error {

@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	config "transaction-api/internal/config"
+	"transaction-api/internal/database"
 	"transaction-api/internal/handler"
 	"transaction-api/internal/repository/postgres"
 	"transaction-api/internal/service"
@@ -21,9 +22,12 @@ func main() {
 	userRepository := postgres.NewUserRepository(db)
 	transactionRepository := postgres.NewTransactionRepository(db)
 
+	// Transaction manager
+	transactionManager := database.NewGormManager(db)
+
 	// Services
-	userService := service.NewUserService(userRepository, transactionRepository)
-	transactionService := service.NewTransactionService(transactionRepository, userRepository)
+	userService := service.NewUserService(userRepository, transactionRepository, transactionManager)
+	transactionService := service.NewTransactionService(transactionRepository, userRepository, transactionManager)
 
 	// Controllers
 	userHandler := handler.NewUserHandler(userService)

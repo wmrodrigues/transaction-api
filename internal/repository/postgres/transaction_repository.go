@@ -11,16 +11,16 @@ import (
 )
 
 type TransactionRepository struct {
-	db *gorm.DB
+	BaseRepository
 }
 
 func NewTransactionRepository(db *gorm.DB) repository.TransactionRepository {
-	return &TransactionRepository{db: db}
+	return &TransactionRepository{BaseRepository: BaseRepository{db: db}}
 }
 
 func (t *TransactionRepository) GetByID(ctx context.Context, id string) (*domain.Transaction, error) {
 	var model TransactionModel
-	err := t.db.WithContext(ctx).Where("id = ?", id).First(&model).Error
+	err := t.getDB(ctx).Where("id = ?", id).First(&model).Error
 	if err != nil {
 		return nil, fmt.Errorf("error getting transaction by id: %w", err)
 	}
@@ -30,7 +30,7 @@ func (t *TransactionRepository) GetByID(ctx context.Context, id string) (*domain
 
 func (t *TransactionRepository) GetBalanceByUserId(ctx context.Context, id string) (*domain.Transaction, error) {
 	var model TransactionModel
-	err := t.db.WithContext(ctx).Where("user_id = ?", id).Order("created_at DESC").First(&model).Error
+	err := t.getDB(ctx).Where("user_id = ?", id).Order("created_at DESC").First(&model).Error
 	if err != nil {
 		return nil, fmt.Errorf("error getting balance by user id: %w", err)
 	}
@@ -40,7 +40,7 @@ func (t *TransactionRepository) GetBalanceByUserId(ctx context.Context, id strin
 
 func (t *TransactionRepository) Create(ctx context.Context, transaction *domain.Transaction) error {
 	model := TransactionToModel(transaction)
-	err := t.db.WithContext(ctx).Create(&model).Error
+	err := t.getDB(ctx).Create(&model).Error
 	if err != nil {
 		return fmt.Errorf("error creating transaction: %w", err)
 	}
@@ -60,8 +60,7 @@ func (t *TransactionRepository) GetByUserId(ctx context.Context, userId string, 
 
 	var total int64
 
-	err := t.db.
-		WithContext(ctx).
+	err := t.getDB(ctx).
 		Model(&TransactionModel{}).
 		Count(&total).
 		Error
@@ -71,8 +70,7 @@ func (t *TransactionRepository) GetByUserId(ctx context.Context, userId string, 
 	}
 
 	var models []TransactionModel
-	err = t.db.
-		WithContext(ctx).
+	err = t.getDB(ctx).
 		Where("user_id = ?", userId).
 		Order("created_at").
 		Limit(pagination.PageSize).
