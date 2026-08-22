@@ -47,7 +47,7 @@ func main() {
 
 	mux.Handle("GET /v1/users/me", authMiddleware(http.HandlerFunc(userHandler.Me)))
 	mux.Handle("GET /v1/users/{id}", authMiddleware(http.HandlerFunc(userHandler.GetUser)))
-	mux.Handle("POST /v1/users", authMiddleware(http.HandlerFunc(userHandler.CreateUser)))
+	mux.HandleFunc("POST /v1/users", userHandler.CreateUser)
 	mux.Handle("GET /v1/users/{id}/transactions", authMiddleware(http.HandlerFunc(transactionHandler.GetTransactions)))
 	mux.Handle("GET /v1/users/{id}/balance", authMiddleware(http.HandlerFunc(transactionHandler.GetUserBalance)))
 

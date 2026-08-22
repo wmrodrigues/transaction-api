@@ -88,7 +88,7 @@ func TestGetUser_ValidateCredentialsSuccess(t *testing.T) {
 	repository := &mockUserRepository{user: expectedUser}
 	userService := NewUserService(repository, &mockTransactionRepository{}, &mockTransactionManager{})
 	ctx := context.Background()
-	err := userService.ValidateCredentials(ctx, expectedUser.Email, expectedUser.Password)
+	err, _ := userService.ValidateCredentials(ctx, expectedUser.Email, expectedUser.Password)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -104,7 +104,7 @@ func TestGetUser_ValidateCredentialsFailed(t *testing.T) {
 	repository := &mockUserRepository{user: expectedUser}
 	userService := NewUserService(repository, &mockTransactionRepository{}, &mockTransactionManager{})
 	ctx := context.Background()
-	err := userService.ValidateCredentials(ctx, expectedUser.Email, "wrong-password")
+	_, err := userService.ValidateCredentials(ctx, expectedUser.Email, "wrong-password")
 	if err == nil {
 		t.Errorf("expected error, got nil")
 	}
