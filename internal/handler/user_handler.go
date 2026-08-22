@@ -21,6 +21,15 @@ func NewUserHandler(userService service.UserService) *UserHandler {
 func (uh *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	id := r.PathValue("id")
+	claims, ok := authentication.ClaimsFromContext(r.Context())
+	if !ok {
+		common.SendUnauthorizedResponse(w, fmt.Errorf("unauthorized: missing claims"))
+		return
+	}
+	if claims.UserID != id {
+		common.SendUnauthorizedResponse(w, fmt.Errorf("unauthorized: user id mismatch"))
+		return
+	}
 	user, err := uh.userService.GetById(ctx, id)
 	if err != nil {
 		common.SendBadRequestResponse(w, err)
@@ -41,19 +50,6 @@ func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	common.SendCreatedResponse(w, dto.UserToResponse(user))
-}
-
-func (uh *UserHandler) ValidateCredentials(w http.ResponseWriter, r *http.Request) {
-	var userRequest dto.UserRequest
-	if err := common.DecodeBodyToObject(w, r, &userRequest); err != nil {
-		return
-	}
-	var user domain.User
-	user = userRequest.ToDomain()
-	if _, err := uh.userService.ValidateCredentials(r.Context(), user.Email, user.Password); err != nil {
-		common.SendBadRequestResponse(w, err)
-	}
-	common.SendSuccessResponse(w, nil)
 }
 
 func (uh *UserHandler) Me(w http.ResponseWriter, r *http.Request) {
