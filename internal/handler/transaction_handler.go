@@ -45,6 +45,10 @@ func (th *TransactionHandler) CreateTransaction(w http.ResponseWriter, r *http.R
 	if err != nil {
 		return
 	}
+	if err := transactionRequest.Validate(); err != nil {
+		common.SendBadRequestResponse(w, err)
+		return
+	}
 	claims, ok := authentication.ClaimsFromContext(r.Context())
 	if !ok {
 		common.SendUnauthorizedResponse(w, fmt.Errorf("unauthorized: missing claims"))
