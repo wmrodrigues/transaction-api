@@ -16,7 +16,7 @@ import (
 type UserService interface {
 	GetById(ctx context.Context, id string) (*domain.User, error)
 	Create(ctx context.Context, user *domain.User) error
-	ValidateCredentials(ctx context.Context, email, password string) error
+	ValidateCredentials(ctx context.Context, email, password string) (*domain.User, error)
 }
 
 type userService struct {
@@ -67,19 +67,19 @@ func (us *userService) Create(ctx context.Context, user *domain.User) error {
 	})
 }
 
-func (us *userService) ValidateCredentials(ctx context.Context, email, password string) error {
+func (us *userService) ValidateCredentials(ctx context.Context, email, password string) (*domain.User, error) {
 	if email == "" {
-		return errors.New("email is required")
+		return nil, errors.New("email is required")
 	}
 	if password == "" {
-		return errors.New("password is required")
+		return nil, errors.New("password is required")
 	}
 	user, err := us.userRepository.GetByEmail(ctx, email)
 	if err != nil {
-		return fmt.Errorf("error getting user by email, %w", err)
+		return nil, fmt.Errorf("error getting user by email, %w", err)
 	}
-	if user.Password != password {
-		return errors.New("invalid user credentials")
+	if !common.CheckPassword(password, user.Password) {
+		return nil, errors.New("invalid user credentials")
 	}
-	return nil
+	return user, nil
 }

@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
+	"transaction-api/internal/authentication"
 	"transaction-api/internal/common"
 	"transaction-api/internal/domain"
 	"transaction-api/internal/handler/dto"
@@ -48,8 +50,18 @@ func (uh *UserHandler) ValidateCredentials(w http.ResponseWriter, r *http.Reques
 	}
 	var user domain.User
 	user = userRequest.ToDomain()
-	if err := uh.userService.ValidateCredentials(r.Context(), user.Email, user.Password); err != nil {
+	if _, err := uh.userService.ValidateCredentials(r.Context(), user.Email, user.Password); err != nil {
 		common.SendBadRequestResponse(w, err)
 	}
 	common.SendSuccessResponse(w, nil)
+}
+
+func (uh *UserHandler) Me(w http.ResponseWriter, r *http.Request) {
+	claims, ok := authentication.ClaimsFromContext(r.Context())
+	if !ok {
+		common.SendUnauthorizedResponse(w, fmt.Errorf("unauthorized: missing claims"))
+		return
+	}
+	claimsMap := map[string]string{"user_id": claims.UserID, "email": claims.Email}
+	common.SendSuccessResponse(w, claimsMap)
 }

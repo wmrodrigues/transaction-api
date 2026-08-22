@@ -5,14 +5,14 @@ import (
 	"transaction-api/internal/domain"
 )
 
-type Transaction struct {
+type TransactionRequest struct {
 	FromUserID string  `json:"fromUserId"`
 	ToUserID   *string `json:"toUserId"`
 	Amount     int64   `json:"amount"`
 	Currency   string  `json:"currency"`
 }
 
-func (t *Transaction) Validate() error {
+func (t *TransactionRequest) Validate() error {
 	if t.Amount == 0 {
 		return errors.New("amount is required")
 	}
@@ -22,7 +22,7 @@ func (t *Transaction) Validate() error {
 	return nil
 }
 
-func (t *Transaction) ToDomain() domain.Transaction {
+func (t *TransactionRequest) ToDomain() domain.Transaction {
 	return domain.Transaction{
 		UserID:     t.FromUserID,
 		FromUserID: &t.FromUserID,

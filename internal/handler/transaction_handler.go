@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
+	"transaction-api/internal/authentication"
 	"transaction-api/internal/common"
 	"transaction-api/internal/domain"
 	"transaction-api/internal/handler/dto"
@@ -29,7 +31,7 @@ func (th *TransactionHandler) GetTransaction(w http.ResponseWriter, r *http.Requ
 
 func (th *TransactionHandler) CreateTransaction(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	var transactionRequest dto.Transaction
+	var transactionRequest dto.TransactionRequest
 	err := common.DecodeBodyToObject(w, r, &transactionRequest)
 	if err != nil {
 		return
@@ -52,6 +54,24 @@ func (th *TransactionHandler) GetTransactions(w http.ResponseWriter, r *http.Req
 	}
 	userId := r.PathValue("id")
 	result, err := th.transactionService.GetByUserId(r.Context(), userId, pagination)
+	if err != nil {
+		common.SendBadRequestResponse(w, err)
+		return
+	}
+	common.SendSuccessResponse(w, result)
+}
+
+func (th *TransactionHandler) GetUserBalance(w http.ResponseWriter, r *http.Request) {
+	userId := r.PathValue("id")
+	claims, ok := authentication.ClaimsFromContext(r.Context())
+	if !ok {
+		common.SendUnauthorizedResponse(w, fmt.Errorf("unauthorized: missing claims"))
+		return
+	}
+	if claims.UserID != userId {
+		common.SendUnauthorizedResponse(w, fmt.Errorf("unauthorized: user id mismatch"))
+	}
+	result, err := th.transactionService.GetBalanceByUserId(r.Context(), userId)
 	if err != nil {
 		common.SendBadRequestResponse(w, err)
 		return

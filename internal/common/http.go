@@ -28,7 +28,7 @@ func SendCreatedResponse(w http.ResponseWriter, data interface{}) {
 	}
 }
 
-func SendErrorResponse(w http.ResponseWriter, err error) {
+func SendInternalServerErrorResponse(w http.ResponseWriter, err error) {
 	w.Header().Set(ContentTypeHeader, ContentTypeJSON)
 	w.WriteHeader(http.StatusInternalServerError)
 	_ = json.NewEncoder(w).Encode(ErrorResponse{Code: http.StatusInternalServerError, Message: err.Error()})
@@ -48,7 +48,13 @@ func SendBadRequestResponse(w http.ResponseWriter, err error) {
 	_ = json.NewEncoder(w).Encode(ErrorResponse{Code: http.StatusBadRequest, Message: err.Error()})
 }
 
-func DecodeBodyToObject[O dto.UserRequest | dto.Transaction](w http.ResponseWriter, r *http.Request, object *O) error {
+func SendUnauthorizedResponse(w http.ResponseWriter, err error) {
+	w.Header().Set(ContentTypeHeader, ContentTypeJSON)
+	w.WriteHeader(http.StatusUnauthorized)
+	_ = json.NewEncoder(w).Encode(ErrorResponse{Code: http.StatusUnauthorized, Message: err.Error()})
+}
+
+func DecodeBodyToObject[O dto.UserRequest | dto.TransactionRequest | dto.AuthRequest](w http.ResponseWriter, r *http.Request, object *O) error {
 	if err := json.NewDecoder(r.Body).Decode(&object); err != nil {
 		SendBadRequestResponse(w, err)
 		return err
