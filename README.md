@@ -44,7 +44,7 @@ balance: 0
 
 The api has 9 endpoints, all of them are protected by JWT authentication, except three that are public: /tokens, /users and /heath .
 
-AS it was mentioned before, the endpoints need to be authenticated with a JWT token. To get a token, you can use the /tokens endpoint.
+As it was mentioned before, the endpoints need to be authenticated with a JWT token. To get a token, you can use the /tokens endpoint.
 
 ```
 curl --location 'http://localhost:8080/v1/auth/tokens' \
@@ -128,7 +128,7 @@ Response:
 ---
 Transfer money between users;
 
-This will transfer 100 SGD from user 7f37e40d-ea0b-4cf0-9104-701f1737d145 to user 87a2b0f5-37a0-410d-ab23-59a3cb4fcf25.
+This will transfer 1 SGD from user 7f37e40d-ea0b-4cf0-9104-701f1737d145 to user 87a2b0f5-37a0-410d-ab23-59a3cb4fcf25.
 > <strong>POST /v1/transactions</strong>
 >
 ```
@@ -289,7 +289,7 @@ func main() {
 }
 ```
 
-Both of these solutions would allow us to monitor the service's performance and create customized dashboards, they're open source and free to use them.
+Both of these solutions would allow us to monitor the service's performance and create customized dashboards, they're open source and free to use.
 
 Alternatively, we could use a third-party service like Datadog or New Relic to monitor the service's performance and create customized dashboards.
 This would require us to pay for the service and would require us to add the Datadog or New Relic library to the project. They are very popular and have a lot of features, they're also very reliable and full of features to use.
