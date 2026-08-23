@@ -57,7 +57,7 @@ func main() {
 
 	mux.HandleFunc("GET /health", healthHandler.GetHealth)
 
-	// Starting the server
+	// Starting the server, let's make this fly!
 	log.Printf("Server started on port %s\n", appConfig.ServAddr)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", appConfig.ServAddr), mux))
 }
