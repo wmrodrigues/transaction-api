@@ -29,6 +29,26 @@ func init() {
 		}
 
 		_, err = db.Exec(`
+			CREATE TABLE accounts (
+				id UUID PRIMARY KEY,
+				user_id UUID NOT NULL,
+				currency VARCHAR(3) NOT NULL,
+				balance BIGINT NOT NULL DEFAULT 0,
+				created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				deleted_at TIMESTAMP,
+				FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+			);
+
+		CREATE UNIQUE INDEX idx_accounts_user_id_currency ON accounts (user_id, currency) WHERE deleted_at IS NULL;
+		CREATE INDEX idx_accounts_user_id ON accounts (user_id);
+		CREATE INDEX idx_accounts_deleted_at ON accounts (deleted_at);
+		`)
+		if err != nil {
+			return fmt.Errorf("error creating accounts table: %v", err)
+		}
+
+		_, err = db.Exec(`
 			CREATE TABLE transactions (
 				id UUID PRIMARY KEY,
 				user_id UUID NOT NULL,
@@ -36,7 +56,6 @@ func init() {
 				to_user_id UUID,
 				currency VARCHAR(3) NOT NULL,
 				amount BIGINT NOT NULL,
-				balance BIGINT NOT NULL,
 				created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				deleted_at TIMESTAMP,
@@ -51,6 +70,7 @@ func init() {
 		fmt.Println("dropping tables...")
 		_, err := db.Exec(`
 		DROP TABLE IF EXISTS transactions;
+		DROP TABLE IF EXISTS accounts;
 		DROP TABLE IF EXISTS users;
 		`)
 		return err

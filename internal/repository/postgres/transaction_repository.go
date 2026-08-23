@@ -28,16 +28,6 @@ func (t *TransactionRepository) GetByID(ctx context.Context, id string) (*domain
 	return &transaction, nil
 }
 
-func (t *TransactionRepository) GetBalanceByUserId(ctx context.Context, id string) (*domain.Transaction, error) {
-	var model TransactionModel
-	err := t.getDB(ctx).Where("user_id = ?", id).Order("created_at DESC").First(&model).Error
-	if err != nil {
-		return nil, fmt.Errorf("error getting balance by user id: %w", err)
-	}
-	transaction := model.toDomain()
-	return &transaction, nil
-}
-
 func (t *TransactionRepository) Create(ctx context.Context, transaction *domain.Transaction) error {
 	model := TransactionToModel(transaction)
 	err := t.getDB(ctx).Create(&model).Error
@@ -62,6 +52,7 @@ func (t *TransactionRepository) GetByUserId(ctx context.Context, userId string, 
 
 	err := t.getDB(ctx).
 		Model(&TransactionModel{}).
+		Where("user_id = ?", userId).
 		Count(&total).
 		Error
 

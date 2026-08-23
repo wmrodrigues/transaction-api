@@ -12,6 +12,7 @@ type Config struct {
 	PostgresPass string
 	PostgresDB   string
 	PostgresPort int
+	JwtSecret    string
 	ServAddr     string
 }
 
@@ -21,6 +22,7 @@ func LoadConfigs() (config Config) {
 	config.PostgresPass = getEnv("POSTGRES_PASSWORD")
 	config.PostgresDB = getEnv("POSTGRES_DB")
 	config.PostgresPort, _ = strconv.Atoi(os.Getenv("POSTGRES_PORT"))
+	config.JwtSecret = getEnv("JWT_SECRET")
 	config.ServAddr = getEnv("SERVER_ADDR")
 	return config
 }

@@ -14,7 +14,6 @@ type Transaction struct {
 	ToUserID   *string   `json:"to_user_id"`
 	Currency   string    `json:"currency"`
 	Amount     int64     `json:"amount"`
-	Balance    int64     `json:"balance"`
 	CreatedAt  time.Time `json:"created_at"`
 }
 
@@ -52,7 +51,6 @@ func (t *Transaction) Clone() Transaction {
 		ToUserID:   t.ToUserID,
 		Currency:   t.Currency,
 		Amount:     t.Amount,
-		Balance:    t.Balance,
 		CreatedAt:  t.CreatedAt,
 	}
 }
