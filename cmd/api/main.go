@@ -22,13 +22,14 @@ func main() {
 	// Repositories
 	userRepository := postgres.NewUserRepository(db)
 	transactionRepository := postgres.NewTransactionRepository(db)
+	accountRepository := postgres.NewAccountRepository(db)
 
 	// Transaction manager
 	transactionManager := database.NewGormManager(db)
 
 	// Services
-	userService := service.NewUserService(userRepository, transactionRepository, transactionManager)
-	transactionService := service.NewTransactionService(transactionRepository, userRepository, transactionManager)
+	userService := service.NewUserService(userRepository, accountRepository, transactionManager)
+	transactionService := service.NewTransactionService(transactionRepository, userRepository, accountRepository, transactionManager)
 	jwtService := authentication.NewJWTService(appConfig.JwtSecret)
 
 	// Controllers

@@ -20,13 +20,13 @@ type UserService interface {
 }
 
 type userService struct {
-	userRepository        repository.UserRepository
-	transactionRepository repository.TransactionRepository
-	transactionManager    database.Manager
+	userRepository     repository.UserRepository
+	accountRepository  repository.AccountRepository
+	transactionManager database.Manager
 }
 
-func NewUserService(userRepository repository.UserRepository, transactionRepository repository.TransactionRepository, transactionManager database.Manager) UserService {
-	return &userService{userRepository: userRepository, transactionRepository: transactionRepository, transactionManager: transactionManager}
+func NewUserService(userRepository repository.UserRepository, accountRepository repository.AccountRepository, transactionManager database.Manager) UserService {
+	return &userService{userRepository: userRepository, accountRepository: accountRepository, transactionManager: transactionManager}
 }
 
 func (us *userService) GetById(ctx context.Context, id string) (*domain.User, error) {
@@ -45,25 +45,35 @@ func (us *userService) Create(ctx context.Context, user *domain.User) error {
 		if err := user.Validate(); err != nil {
 			return fmt.Errorf("error validating user data: %w", err)
 		}
+		_, err := us.userRepository.GetByEmail(ctx, user.Email)
+		if err == nil {
+			return errors.New("user already exists")
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("error checking existing user: %w", err)
+		}
 		password, err := common.HashPassword(user.Password)
 		if err != nil {
 			return fmt.Errorf("error hashing user password: %w", err)
 		}
 		user.Password = password
 		user.Active = true
-		_, err = us.userRepository.GetByEmail(ctx, user.Email)
-		if err == nil {
-			return errors.New("user already exists")
-		}
 		user.ID = uuid.New().String()
-		err = us.userRepository.Create(ctx, user)
-		// create a transaction record with zero value for the new user
-		_ = us.transactionRepository.Create(ctx, &domain.Transaction{
-			UserID:  user.ID,
-			Amount:  0,
-			Balance: 0,
-		})
-		return err
+		if err := us.userRepository.Create(ctx, user); err != nil {
+			return fmt.Errorf("error creating user: %w", err)
+		}
+		// here we use the SupportedCurrencies map to create accounts based on the registered currencies
+		for currency := range domain.SupportedCurrencies {
+			account := &domain.Account{
+				ID:       uuid.New().String(),
+				UserID:   user.ID,
+				Currency: string(currency),
+			}
+			if err := us.accountRepository.Create(ctx, account); err != nil {
+				return fmt.Errorf("error creating %s account for user %s: %w", currency, user.ID, err)
+			}
+		}
+		return nil
 	})
 }
 

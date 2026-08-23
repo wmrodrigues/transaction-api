@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"transaction-api/internal/common"
 	"transaction-api/internal/domain"
 
 	"gorm.io/gorm"
@@ -14,9 +15,13 @@ type mockUserRepository struct {
 	err           error
 	getByEmailErr error
 	createErr     error
+	missingIDs    map[string]bool
 }
 
 func (m *mockUserRepository) GetByID(ctx context.Context, id string) (*domain.User, error) {
+	if m.missingIDs[id] {
+		return nil, gorm.ErrRecordNotFound
+	}
 	return m.user, m.err
 }
 
@@ -47,7 +52,7 @@ func TestGetUser(t *testing.T) {
 		Email: "wash@example.com",
 	}
 	repository := &mockUserRepository{user: expectedUser}
-	userService := NewUserService(repository, &mockTransactionRepository{}, &mockTransactionManager{})
+	userService := NewUserService(repository, &mockAccountRepository{}, &mockTransactionManager{})
 	ctx := context.Background()
 	user, err := userService.GetById(ctx, "123")
 	if err != nil {
@@ -62,7 +67,7 @@ func TestGetUser_ContextCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	repository := &mockUserRepository{err: context.Canceled}
-	userService := NewUserService(repository, &mockTransactionRepository{}, &mockTransactionManager{})
+	userService := NewUserService(repository, &mockAccountRepository{}, &mockTransactionManager{})
 	_, err := userService.GetById(ctx, "123")
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected context.Canceled, got %v", err)
@@ -71,7 +76,7 @@ func TestGetUser_ContextCancelled(t *testing.T) {
 
 func TestGetUser_UserNotFound(t *testing.T) {
 	repository := &mockUserRepository{err: errors.New("user not found")}
-	userService := NewUserService(repository, &mockTransactionRepository{}, &mockTransactionManager{})
+	userService := NewUserService(repository, &mockAccountRepository{}, &mockTransactionManager{})
 	_, err := userService.GetById(context.Background(), "123")
 	if err == nil {
 		t.Fatal("expected error, got nil")
@@ -79,32 +84,43 @@ func TestGetUser_UserNotFound(t *testing.T) {
 }
 
 func TestGetUser_ValidateCredentialsSuccess(t *testing.T) {
+	hashed, err := common.HashPassword("123456")
+	if err != nil {
+		t.Fatalf("unexpected error hashing password: %v", err)
+	}
 	expectedUser := &domain.User{
 		ID:       "123",
 		Name:     "Wash",
 		Email:    "wash@example.com",
-		Password: "123456",
+		Password: hashed,
 	}
 	repository := &mockUserRepository{user: expectedUser}
-	userService := NewUserService(repository, &mockTransactionRepository{}, &mockTransactionManager{})
+	userService := NewUserService(repository, &mockAccountRepository{}, &mockTransactionManager{})
 	ctx := context.Background()
-	err, _ := userService.ValidateCredentials(ctx, expectedUser.Email, expectedUser.Password)
+	user, err := userService.ValidateCredentials(ctx, expectedUser.Email, "123456")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
+	}
+	if user == nil || user.ID != expectedUser.ID {
+		t.Errorf("expected user %s, got %v", expectedUser.ID, user)
 	}
 }
 
 func TestGetUser_ValidateCredentialsFailed(t *testing.T) {
+	hashed, err := common.HashPassword("123456")
+	if err != nil {
+		t.Fatalf("unexpected error hashing password: %v", err)
+	}
 	expectedUser := &domain.User{
 		ID:       "123",
 		Name:     "Wash",
 		Email:    "wash@example.com",
-		Password: "123456",
+		Password: hashed,
 	}
 	repository := &mockUserRepository{user: expectedUser}
-	userService := NewUserService(repository, &mockTransactionRepository{}, &mockTransactionManager{})
+	userService := NewUserService(repository, &mockAccountRepository{}, &mockTransactionManager{})
 	ctx := context.Background()
-	_, err := userService.ValidateCredentials(ctx, expectedUser.Email, "wrong-password")
+	_, err = userService.ValidateCredentials(ctx, expectedUser.Email, "wrong-password")
 	if err == nil {
 		t.Errorf("expected error, got nil")
 	}
@@ -112,7 +128,7 @@ func TestGetUser_ValidateCredentialsFailed(t *testing.T) {
 
 func TestGetUser_EmptyID(t *testing.T) {
 	repository := &mockUserRepository{}
-	userService := NewUserService(repository, &mockTransactionRepository{}, &mockTransactionManager{})
+	userService := NewUserService(repository, &mockAccountRepository{}, &mockTransactionManager{})
 	_, err := userService.GetById(context.Background(), "")
 	if err == nil {
 		t.Fatal("expected error for empty ID, got nil")
@@ -124,7 +140,7 @@ func TestGetUser_EmptyID(t *testing.T) {
 
 func TestGetUser_GormRecordNotFound(t *testing.T) {
 	repository := &mockUserRepository{err: gorm.ErrRecordNotFound}
-	userService := NewUserService(repository, &mockTransactionRepository{}, &mockTransactionManager{})
+	userService := NewUserService(repository, &mockAccountRepository{}, &mockTransactionManager{})
 	_, err := userService.GetById(context.Background(), "123")
 	if err == nil {
 		t.Fatal("expected error, got nil")
@@ -136,9 +152,10 @@ func TestGetUser_GormRecordNotFound(t *testing.T) {
 
 func TestCreateUser_Success(t *testing.T) {
 	repository := &mockUserRepository{
-		getByEmailErr: errors.New("not found"),
+		getByEmailErr: gorm.ErrRecordNotFound,
 	}
-	userService := NewUserService(repository, &mockTransactionRepository{}, &mockTransactionManager{})
+	accountRepository := &mockAccountRepository{}
+	userService := NewUserService(repository, accountRepository, &mockTransactionManager{})
 	user := &domain.User{
 		Name:     "Wash",
 		Email:    "wash@example.com",
@@ -151,11 +168,17 @@ func TestCreateUser_Success(t *testing.T) {
 	if user.ID == "" {
 		t.Fatal("expected user ID to be assigned")
 	}
+	if user.Password == "123456" {
+		t.Fatal("expected password to be hashed")
+	}
+	if len(accountRepository.created) != len(domain.SupportedCurrencies) {
+		t.Fatalf("expected %d seeded accounts, got %d", len(domain.SupportedCurrencies), len(accountRepository.created))
+	}
 }
 
 func TestCreateUser_ValidationFailure(t *testing.T) {
 	repository := &mockUserRepository{}
-	userService := NewUserService(repository, &mockTransactionRepository{}, &mockTransactionManager{})
+	userService := NewUserService(repository, &mockAccountRepository{}, &mockTransactionManager{})
 	tests := []struct {
 		name string
 		user domain.User
@@ -183,7 +206,7 @@ func TestCreateUser_DuplicateUser(t *testing.T) {
 		Email: "wash@example.com",
 	}
 	repository := &mockUserRepository{user: existingUser}
-	userService := NewUserService(repository, &mockTransactionRepository{}, &mockTransactionManager{})
+	userService := NewUserService(repository, &mockAccountRepository{}, &mockTransactionManager{})
 	user := &domain.User{
 		Name:     "Wash",
 		Email:    "wash@example.com",

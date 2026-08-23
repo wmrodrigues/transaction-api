@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"transaction-api/internal/domain"
 
@@ -11,27 +10,13 @@ import (
 )
 
 type mockTransactionRepository struct {
-	transaction     *domain.Transaction
-	balanceByUserID map[string]*domain.Transaction
-	err             error
-	getBalanceErr   error
-	createErr       error
-	created         []*domain.Transaction
+	transaction *domain.Transaction
+	err         error
+	createErr   error
+	created     []*domain.Transaction
 }
 
 func (m *mockTransactionRepository) GetByID(ctx context.Context, id string) (*domain.Transaction, error) {
-	return m.transaction, m.err
-}
-
-func (m *mockTransactionRepository) GetBalanceByUserId(ctx context.Context, id string) (*domain.Transaction, error) {
-	if m.getBalanceErr != nil {
-		return nil, m.getBalanceErr
-	}
-	if m.balanceByUserID != nil {
-		if tx, ok := m.balanceByUserID[id]; ok {
-			return tx, nil
-		}
-	}
 	return m.transaction, m.err
 }
 
@@ -47,26 +32,76 @@ func (m *mockTransactionRepository) GetByUserId(ctx context.Context, userId stri
 	return nil, m.err
 }
 
-func TestGetBalanceByUserId(t *testing.T) {
-	expected := &domain.Transaction{
-		ID:      "tx123",
-		UserID:  "123",
-		Amount:  500,
-		Balance: 1500,
+type mockAccountRepository struct {
+	accounts        map[string]*domain.Account
+	byUser          map[string][]domain.Account
+	getForUpdateErr error
+	updateErr       error
+	createErr       error
+	updated         map[string]int64
+	created         []*domain.Account
+}
+
+func (m *mockAccountRepository) Create(ctx context.Context, account *domain.Account) error {
+	if m.createErr != nil {
+		return m.createErr
 	}
-	repository := &mockTransactionRepository{transaction: expected}
-	transactionService := NewTransactionService(repository, &mockUserRepository{}, &mockTransactionManager{})
+	m.created = append(m.created, account)
+	return nil
+}
+
+func acctKey(userID, currency string) string {
+	return userID + "|" + currency
+}
+
+func (m *mockAccountRepository) GetForUpdate(ctx context.Context, userID, currency string) (*domain.Account, error) {
+	if m.getForUpdateErr != nil {
+		return nil, m.getForUpdateErr
+	}
+	if m.accounts != nil {
+		if account, ok := m.accounts[acctKey(userID, currency)]; ok {
+			return account, nil
+		}
+	}
+	return nil, gorm.ErrRecordNotFound
+}
+
+func (m *mockAccountRepository) GetByUserID(ctx context.Context, userID string) ([]domain.Account, error) {
+	if m.byUser != nil {
+		return m.byUser[userID], nil
+	}
+	return nil, nil
+}
+
+func (m *mockAccountRepository) UpdateBalance(ctx context.Context, accountID string, newBalance int64) error {
+	if m.updateErr != nil {
+		return m.updateErr
+	}
+	if m.updated == nil {
+		m.updated = map[string]int64{}
+	}
+	m.updated[accountID] = newBalance
+	return nil
+}
+
+func TestGetBalances(t *testing.T) {
+	accounts := []domain.Account{{ID: "account1", UserID: "123", Currency: "SGD", Balance: 1500}}
+	accountRepository := &mockAccountRepository{byUser: map[string][]domain.Account{"123": accounts}}
+	transactionService := NewTransactionService(&mockTransactionRepository{}, &mockUserRepository{}, accountRepository, &mockTransactionManager{})
 	result, err := transactionService.GetBalanceByUserId(context.Background(), "123")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.Balance != expected.Balance {
-		t.Fatalf("expected balance %d, got %d", expected.Balance, result.Balance)
+	if len(result) != 1 {
+		t.Fatalf("expected 1 account, got %d", len(result))
+	}
+	if result[0].Balance != 1500 {
+		t.Fatalf("expected balance 1500, got %d", result[0].Balance)
 	}
 }
 
-func TestGetBalanceByUserId_EmptyUserID(t *testing.T) {
-	transactionService := NewTransactionService(&mockTransactionRepository{}, &mockUserRepository{}, &mockTransactionManager{})
+func TestGetBalances_EmptyUserID(t *testing.T) {
+	transactionService := NewTransactionService(&mockTransactionRepository{}, &mockUserRepository{}, &mockAccountRepository{}, &mockTransactionManager{})
 	_, err := transactionService.GetBalanceByUserId(context.Background(), "")
 	if err == nil {
 		t.Fatal("expected error for empty user ID, got nil")
@@ -78,32 +113,31 @@ func TestGetBalanceByUserId_EmptyUserID(t *testing.T) {
 
 func TestCreateTransaction_SelfDeposit(t *testing.T) {
 	userID := uuid.New().String()
-	transactionRepository := &mockTransactionRepository{
-		transaction: &domain.Transaction{
-			UserID:  userID,
-			Balance: 1000,
-		},
-	}
-	userRepository := &mockUserRepository{
-		user: &domain.User{ID: userID, Name: "Wash", Email: "wash@example.com"},
-	}
-	transactionService := NewTransactionService(transactionRepository, userRepository, &mockTransactionManager{})
+	account := &domain.Account{ID: "account1", UserID: userID, Currency: "SGD", Balance: 1000}
+	accountRepository := &mockAccountRepository{accounts: map[string]*domain.Account{acctKey(userID, "SGD"): account}}
+	transactionRepository := &mockTransactionRepository{}
+	userRepository := &mockUserRepository{user: &domain.User{ID: userID, Name: "Wash", Email: "wash@example.com"}}
+	transactionService := NewTransactionService(transactionRepository, userRepository, accountRepository, &mockTransactionManager{})
 	transaction := &domain.Transaction{
-		UserID:   userID,
-		Amount:   500,
-		Currency: "SGD",
+		UserID:     userID,
+		FromUserID: &userID,
+		Amount:     500,
+		Currency:   "SGD",
 	}
 	err := transactionService.Create(context.Background(), transaction)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if transaction.Balance != 1500 {
-		t.Fatalf("expected balance 1500, got %d", transaction.Balance)
+	if accountRepository.updated["account1"] != 1500 {
+		t.Fatalf("expected account balance 1500, got %d", accountRepository.updated["account1"])
+	}
+	if len(transactionRepository.created) != 1 {
+		t.Fatalf("expected 1 ledger record, got %d", len(transactionRepository.created))
 	}
 }
 
 func TestCreateTransaction_ValidationFailure(t *testing.T) {
-	transactionService := NewTransactionService(&mockTransactionRepository{}, &mockUserRepository{}, &mockTransactionManager{})
+	transactionService := NewTransactionService(&mockTransactionRepository{}, &mockUserRepository{}, &mockAccountRepository{}, &mockTransactionManager{})
 	tests := []struct {
 		name        string
 		transaction domain.Transaction
@@ -125,10 +159,11 @@ func TestCreateTransaction_ValidationFailure(t *testing.T) {
 }
 
 func TestCreateTransaction_UserDoesNotExist(t *testing.T) {
-	userRepository := &mockUserRepository{err: gorm.ErrRecordNotFound}
-	transactionService := NewTransactionService(&mockTransactionRepository{}, userRepository, &mockTransactionManager{})
+	userID := uuid.New().String()
+	userRepository := &mockUserRepository{missingIDs: map[string]bool{userID: true}}
+	transactionService := NewTransactionService(&mockTransactionRepository{}, userRepository, &mockAccountRepository{}, &mockTransactionManager{})
 	transaction := &domain.Transaction{
-		UserID:   "123",
+		UserID:   userID,
 		Amount:   500,
 		Currency: "SGD",
 	}
@@ -138,19 +173,20 @@ func TestCreateTransaction_UserDoesNotExist(t *testing.T) {
 	}
 }
 
-func TestCreateTransaction_NoExistingBalance(t *testing.T) {
-	userID := "123"
-	transactionRepository := &mockTransactionRepository{getBalanceErr: errors.New("no balance record")}
+func TestCreateTransaction_NoExistingAccount(t *testing.T) {
+	userID := uuid.New().String()
 	userRepository := &mockUserRepository{user: &domain.User{ID: userID, Name: "Wash", Email: "wash@example.com"}}
-	transactionService := NewTransactionService(transactionRepository, userRepository, &mockTransactionManager{})
-	tx := &domain.Transaction{
-		UserID:   userID,
-		Amount:   500,
-		Currency: "SGD",
+	// empty account repository, GetForUpdate returns ErrRecordNotFound
+	transactionService := NewTransactionService(&mockTransactionRepository{}, userRepository, &mockAccountRepository{}, &mockTransactionManager{})
+	transaction := &domain.Transaction{
+		UserID:     userID,
+		FromUserID: &userID,
+		Amount:     500,
+		Currency:   "SGD",
 	}
-	err := transactionService.Create(context.Background(), tx)
+	err := transactionService.Create(context.Background(), transaction)
 	if err == nil {
-		t.Fatal("expected error when balance not found, got nil")
+		t.Fatal("expected error when account not found, got nil")
 	}
 }
 
@@ -158,51 +194,62 @@ func TestCreateTransaction_Transfer(t *testing.T) {
 	senderID := uuid.New().String()
 	receiverID := uuid.New().String()
 
-	transactionRepository := &mockTransactionRepository{
-		balanceByUserID: map[string]*domain.Transaction{
-			senderID:   {UserID: senderID, Balance: 1000},
-			receiverID: {UserID: receiverID, Balance: 200},
-		},
-	}
+	senderAccount := &domain.Account{ID: "accountSender", UserID: senderID, Currency: "SGD", Balance: 1000}
+	receiverAccount := &domain.Account{ID: "accountReceiver", UserID: receiverID, Currency: "SGD", Balance: 200}
+	accountRepository := &mockAccountRepository{accounts: map[string]*domain.Account{
+		acctKey(senderID, "SGD"):   senderAccount,
+		acctKey(receiverID, "SGD"): receiverAccount,
+	}}
+	transactionRepository := &mockTransactionRepository{}
 	userRepository := &mockUserRepository{user: &domain.User{ID: senderID, Name: "Wash", Email: "wash@example.com"}}
-	transactionService := NewTransactionService(transactionRepository, userRepository, &mockTransactionManager{})
+	transactionService := NewTransactionService(transactionRepository, userRepository, accountRepository, &mockTransactionManager{})
 	transaction := &domain.Transaction{
-		UserID:   senderID,
-		ToUserID: &receiverID,
-		Amount:   300,
-		Currency: "SGD",
+		UserID:     senderID,
+		FromUserID: &senderID,
+		ToUserID:   &receiverID,
+		Amount:     300,
+		Currency:   "SGD",
 	}
 	err := transactionService.Create(context.Background(), transaction)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	if accountRepository.updated["accountSender"] != 700 {
+		t.Fatalf("expected sender balance 700, got %d", accountRepository.updated["accountSender"])
+	}
+	if accountRepository.updated["accountReceiver"] != 500 {
+		t.Fatalf("expected receiver balance 500, got %d", accountRepository.updated["accountReceiver"])
+	}
 	if len(transactionRepository.created) != 2 {
-		t.Fatalf("expected 2 transaction records (withdrawal + deposit), got %d", len(transactionRepository.created))
+		t.Fatalf("expected 2 ledger records (withdrawal + deposit), got %d", len(transactionRepository.created))
 	}
 	withdrawal := transactionRepository.created[0]
 	if withdrawal.Amount != -300 {
 		t.Fatalf("expected withdrawal amount -300, got %d", withdrawal.Amount)
 	}
-	if withdrawal.Balance != 700 {
-		t.Fatalf("expected sender balance 700 after withdrawal, got %d", withdrawal.Balance)
-	}
 	deposit := transactionRepository.created[1]
-	if deposit.Balance != 500 {
-		t.Fatalf("expected receiver balance 500 after deposit, got %d", deposit.Balance)
+	if deposit.UserID != receiverID {
+		t.Fatalf("expected deposit user id %s, got %s", receiverID, deposit.UserID)
 	}
 }
 
 func TestCreateTransaction_Transfer_InsufficientBalance(t *testing.T) {
 	senderID := uuid.New().String()
 	receiverID := uuid.New().String()
-	transactionRepository := &mockTransactionRepository{balanceByUserID: map[string]*domain.Transaction{senderID: {UserID: senderID, Balance: 100}}}
+	senderAccount := &domain.Account{ID: "accountSender", UserID: senderID, Currency: "SGD", Balance: 100}
+	receiverAccount := &domain.Account{ID: "accountReceiver", UserID: receiverID, Currency: "SGD", Balance: 0}
+	accountRepository := &mockAccountRepository{accounts: map[string]*domain.Account{
+		acctKey(senderID, "SGD"):   senderAccount,
+		acctKey(receiverID, "SGD"): receiverAccount,
+	}}
 	userRepository := &mockUserRepository{user: &domain.User{ID: senderID, Name: "Wash", Email: "wash@example.com"}}
-	transactionService := NewTransactionService(transactionRepository, userRepository, &mockTransactionManager{})
+	transactionService := NewTransactionService(&mockTransactionRepository{}, userRepository, accountRepository, &mockTransactionManager{})
 	transaction := &domain.Transaction{
-		UserID:   senderID,
-		ToUserID: &receiverID,
-		Amount:   500,
-		Currency: "SGD",
+		UserID:     senderID,
+		FromUserID: &senderID,
+		ToUserID:   &receiverID,
+		Amount:     500,
+		Currency:   "SGD",
 	}
 	err := transactionService.Create(context.Background(), transaction)
 	if err == nil {
@@ -216,17 +263,17 @@ func TestCreateTransaction_Transfer_InsufficientBalance(t *testing.T) {
 func TestCreateTransaction_Transfer_RecipientDoesNotExist(t *testing.T) {
 	senderID := uuid.New().String()
 	receiverID := uuid.New().String()
-	transactionRepository := &mockTransactionRepository{balanceByUserID: map[string]*domain.Transaction{
-		senderID: {UserID: senderID, Balance: 1000}},
+	userRepository := &mockUserRepository{
+		user:       &domain.User{ID: senderID, Name: "Wash", Email: "wash@example.com"},
+		missingIDs: map[string]bool{receiverID: true},
 	}
-	// using a mock that fails for the recipient lookup
-	userRepository := &mockUserRepository{err: gorm.ErrRecordNotFound}
-	transactionService := NewTransactionService(transactionRepository, userRepository, &mockTransactionManager{})
+	transactionService := NewTransactionService(&mockTransactionRepository{}, userRepository, &mockAccountRepository{}, &mockTransactionManager{})
 	transaction := &domain.Transaction{
-		UserID:   senderID,
-		ToUserID: &receiverID,
-		Amount:   300,
-		Currency: "SGD",
+		UserID:     senderID,
+		FromUserID: &senderID,
+		ToUserID:   &receiverID,
+		Amount:     300,
+		Currency:   "SGD",
 	}
 	err := transactionService.Create(context.Background(), transaction)
 	if err == nil {
