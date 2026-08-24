@@ -4,6 +4,33 @@ Small api to emulate money transactions into user accounts
 
 This is a personal project, not intended to be used in production. Its goal and purpose is to learn more about the microservices architecture and how to work with financial data.
 
+## The Makefile
+
+This project uses a Makefile to help with the process. The Makefile has the following targets:
+
+Start the service
+```
+make up
+```
+
+___
+Stop the service
+```
+make down
+```
+ 
+___
+Stop everything and restart the service
+```
+make restart
+```
+
+___
+Show the logs of the service
+```
+make logs
+```
+
 ## How to use it / run it
 
 This project uses docker-compose to run the service. It has a Makefile to help with the process.
