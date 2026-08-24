@@ -196,7 +196,7 @@ HTTP Status Code 201
 
 ---
 Get all transactions for a user;
-> <strong>GET /v1/transactions</strong>
+> <strong>GET /v1/users/{id}/transactions</strong>
 >
 ```
 curl --location 'http://localhost:8080/v1/users/7f37e40d-ea0b-4cf0-9104-701f1737d145/transactions?page=0&page_size=2' \
